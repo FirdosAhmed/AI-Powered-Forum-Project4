@@ -1,9 +1,3 @@
-// ! This is the database layer. 
-// It talks to answers, checks the parent questions row, 
-// and joins users so the frontend 
-// can show the author’s name.
-
-
 import { safeExecute } from '../../../../db/config.js';
 import {
   ForbiddenError,

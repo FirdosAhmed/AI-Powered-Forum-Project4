@@ -5,14 +5,14 @@ import { validationErrorHandler } from '../../../middleware/validation-handler.j
  * Validates the request body when posting a new answer.
  *
  * @param {number} questionId - The parent question ID from the request body.
- * @param {string} content - The answer text from the request body (min 10 characters).
+ * @param {string} content - The answer text from the request body (min 3 characters).
  * @returns {Array} Middleware that rejects invalid input with 400.
  */
 export const createAnswerValidation = [
   body('questionId')
     .notEmpty()
     .withMessage('Question ID is required')
-    .isInt({ min: 1 })
+    .isInt({ min: 1 }) 
     .withMessage('Question ID must be a positive integer')
     .toInt(),
   body('content')
@@ -20,8 +20,8 @@ export const createAnswerValidation = [
     .withMessage('Answer content is required')
     .isString()
     .withMessage('Answer content must be a string')
-    .isLength({ min: 10 })
-    .withMessage('Answer content must be at least 10 characters long')
+    .isLength({ min: 3 })
+    .withMessage('Answer content must be at least 3 characters long')
     .trim(),
   validationErrorHandler,
 ];
@@ -30,7 +30,7 @@ export const createAnswerValidation = [
  * Validates the URL param and body when updating an answer.
  *
  * @param {number} answerId - The answer ID from the route param.
- * @param {string} content - The updated answer text from the request body (min 10 characters).
+  * @param {string} content - The updated answer text from the request body (min 3 characters).
  * @returns {Array} Middleware that rejects invalid input with 400.
  */
 export const updateAnswerValidation = [
@@ -43,14 +43,14 @@ export const updateAnswerValidation = [
     .withMessage('Answer content is required')
     .isString()
     .withMessage('Answer content must be a string')
-    .isLength({ min: 10 })
-    .withMessage('Answer content must be at least 10 characters long')
+    .isLength({ min: 3 })
+    .withMessage('Answer content must be at least 3 characters long')
     .trim(),
   validationErrorHandler,
 ];
 
 /**
- * Validates the answer ID in the route param.
+ * Validates the answer ID in the route param (URL param).
  *
  * @param {number} answerId - The answer ID from the route param.
  * @returns {Array} Middleware that rejects an invalid ID with 400.

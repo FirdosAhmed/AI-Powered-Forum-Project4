@@ -49,7 +49,7 @@ export const createAnswerController = async (req, res, next) => {
  */
 export const listAnswersController = async (req, res, next) => {
   try {
-    const questionId = Number(req.query.questionId);
+    const { questionId } = req.query;
     const answers = await listAnswersByQuestionService(questionId);
 
     res.status(StatusCodes.OK).json({
@@ -72,7 +72,7 @@ export const listAnswersController = async (req, res, next) => {
  */
 export const getAnswerController = async (req, res, next) => {
   try {
-    const answerId = Number(req.params.answerId);
+    const { answerId } = req.params;
     const answer = await getAnswerByIdService(answerId);
 
     res.status(StatusCodes.OK).json({
@@ -97,7 +97,7 @@ export const getAnswerController = async (req, res, next) => {
  */
 export const updateAnswerController = async (req, res, next) => {
   try {
-    const answerId = Number(req.params.answerId);
+    const { answerId } = req.params;
     const { content } = req.body;
 
     const answer = await updateAnswerService({
@@ -128,7 +128,7 @@ export const updateAnswerController = async (req, res, next) => {
  */
 export const deleteAnswerController = async (req, res, next) => {
   try {
-    const answerId = Number(req.params.answerId);
+    const { answerId } = req.params;
 
     await deleteAnswerService({
       answerId,
