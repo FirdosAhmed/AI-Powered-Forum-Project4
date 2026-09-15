@@ -1,0 +1,40 @@
+.card {
+  width: 100%;
+  text-align: left;
+  padding: 1rem 1.15rem;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.card:hover {
+  border-color: var(--border-hover);
+  background-color: var(--surface-hover);
+}
+
+.card__title {
+  margin: 0 0 0.35rem;
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+}
+
+.card__content {
+  margin: 0 0 0.5rem;
+  font-size: var(--text-sm);
+  line-height: 1.55;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.card__meta {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}
