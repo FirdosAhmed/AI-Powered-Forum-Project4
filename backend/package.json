@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "nodemon index.js",
+
+    "dev": "node --watch index.js",
     "start": "node index.js",
     "test": "node --test"
   },
@@ -26,8 +27,7 @@
     "nodemon": "^3.1.14",
     "pdf-parse": "^2.4.5"
   },
-  "allowScripts": {
-    "@google/genai@2.22.0": true,
-    "protobufjs@7.6.6": true
+  "devDependencies": {
+    "nodemon": "^3.1.14"
   }
 }

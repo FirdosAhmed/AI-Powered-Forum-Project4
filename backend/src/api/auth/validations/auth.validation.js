@@ -1,8 +1,5 @@
-import { body, param } from 'express-validator';
+import { body } from 'express-validator';
 import { validationErrorHandler } from '../../../middleware/validation-handler.js';
-
-// 32 random bytes rendered as hex.
-const RESET_TOKEN_PATTERN = /^[a-f0-9]{64}$/;
 
 export const registerValidation = [
   body('firstName')
@@ -42,40 +39,6 @@ export const loginValidation = [
     .withMessage('A valid email address is required')
     .normalizeEmail(),
   body('password').notEmpty().withMessage('Password is required'),
-
-  validationErrorHandler,
-];
-
-export const forgotPasswordValidation = [
-  body('email')
-    .notEmpty()
-    .withMessage('Email is required')
-    .isEmail()
-    .withMessage('A valid email address is required')
-    .normalizeEmail(),
-
-  validationErrorHandler,
-];
-
-export const resetTokenParamValidation = [
-  param('token')
-    .matches(RESET_TOKEN_PATTERN)
-    .withMessage('Reset token is not valid'),
-
-  validationErrorHandler,
-];
-
-export const resetPasswordValidation = [
-  body('token')
-    .notEmpty()
-    .withMessage('Reset token is required')
-    .matches(RESET_TOKEN_PATTERN)
-    .withMessage('Reset token is not valid'),
-  body('password')
-    .notEmpty()
-    .withMessage('Password is required')
-    .isLength({ min: 6 })
-    .withMessage('Password must be at least 6 characters long'),
 
   validationErrorHandler,
 ];

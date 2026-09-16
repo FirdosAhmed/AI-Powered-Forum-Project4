@@ -22,26 +22,6 @@ CREATE TABLE `users` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- -----------------------------------------------------------------------------
--- 1b. Password Resets Table
--- Stores single-use, expiring password reset tokens.
--- Only the SHA-256 hash of the token is kept; the plain token lives in the email.
--- -----------------------------------------------------------------------------
-DROP TABLE IF EXISTS `password_resets`;
-CREATE TABLE `password_resets` (
-    `reset_id` INT AUTO_INCREMENT PRIMARY KEY,
-    `user_id` INT NOT NULL,
-    `token_hash` CHAR(64) NOT NULL UNIQUE,
-    `expires_at` DATETIME NOT NULL,
-    `used_at` DATETIME NULL,
-    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-
-    FOREIGN KEY (`user_id`) REFERENCES `users`(`user_id`) ON DELETE CASCADE,
-
-    INDEX `idx_password_resets_user_id` (`user_id`),
-    INDEX `idx_password_resets_expires_at` (`expires_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- -----------------------------------------------------------------------------
 -- 2. Questions Table
 -- Stores the main questions posted by users.
 -- Supports full-text search on title and content for exact match search.

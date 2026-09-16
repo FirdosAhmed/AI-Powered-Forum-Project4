@@ -1,101 +1,62 @@
-import express from 'express';
-import { authenticateUser } from '../../../middleware/authentication.js';
+import express from "express";
+import { authenticateUser } from "../../../middleware/authentication.js";
 import {
-  assessAnswerAgainstQuestionController,
   createQuestionController,
-  deleteQuestionController,
   getQuestionsController,
   getSingleQuestionController,
-  updateQuestionController,
-} from '../controller/question.controller.js';
+  searchQuestionsSemanticController,
+  getSimilarQuestionsController,
+  generateQuestionDraftCoachController,
+  assessAnswerAgainstQuestionController,
+} from "../controller/question.controller.js";
 import {
-  assessAnswerFitValidation,
   createQuestionValidation,
   getQuestionsValidation,
-  questionHashParamValidation,
-  updateQuestionValidation,
-} from '../validation/question.validation.js';
+  getSingleQuestionValidation,
+  searchQuestionsSemanticValidation,
+} from "../validation/question.validation.js";
 
 const router = express.Router();
 
-/**
- * Requires a valid JWT on every question route.
- */
 router.use(authenticateUser);
 
-/**
- * Posts a new question.
- *
- * @route POST /api/questions
- * @access Private
- * @param {string} req.body.title - The question title.
- * @param {string} req.body.content - The question text.
- */
-router.post('/', createQuestionValidation, createQuestionController);
+// POST /api/questions
+router.post("/", createQuestionValidation, createQuestionController);
 
-/**
- * Lists questions, optionally filtered by search or current user.
- *
- * @route GET /api/questions
- * @access Private
- * @param {string} [req.query.search] - Optional keyword search.
- * @param {boolean} [req.query.mine] - When true, only the current user's questions.
- */
-router.get('/', getQuestionsValidation, getQuestionsController);
+// GET /api/questions
+router.get("/", getQuestionsValidation, getQuestionsController);
 
-/**
- * Scores how well a draft answer addresses the question.
- *
- * @route POST /api/questions/:questionHash/answer-fit
- * @access Private
- * @param {string} req.params.questionHash - The 16-character question hash.
- * @param {string} req.body.answerText - The unpublished answer draft.
- */
-router.post(
-  '/:questionHash/answer-fit',
-  assessAnswerFitValidation,
-  assessAnswerAgainstQuestionController,
+// GET /api/questions/search?query=...
+// Defined before /:questionHash so "search" is not captured as a hash param
+router.get(
+  "/search",
+  searchQuestionsSemanticValidation,
+  searchQuestionsSemanticController,
 );
 
-/**
- * Returns one question by hash, plus its answers.
- *
- * @route GET /api/questions/:questionHash
- * @access Private
- * @param {string} req.params.questionHash - The 16-character question hash.
- */
+// POST /api/questions/draft-coach
+// Defined before /:questionHash so "draft-coach" is not captured as a hash param
+router.post("/draft-coach", generateQuestionDraftCoachController);
+
+// GET /api/questions/:questionHash
 router.get(
-  '/:questionHash',
-  questionHashParamValidation,
+  "/:questionHash",
+  getSingleQuestionValidation,
   getSingleQuestionController,
 );
 
-/**
- * Updates a question owned by the current user.
- *
- * @route PUT /api/questions/:questionHash
- * @access Private
- * @param {string} req.params.questionHash - The 16-character question hash.
- * @param {string} req.body.title - The updated title.
- * @param {string} req.body.content - The updated question text.
- */
-router.put(
-  '/:questionHash',
-  updateQuestionValidation,
-  updateQuestionController,
+// GET /api/questions/:questionHash/similar
+router.get(
+  "/:questionHash/similar",
+  getSingleQuestionValidation,
+  getSimilarQuestionsController,
 );
 
-/**
- * Deletes a question owned by the current user.
- *
- * @route DELETE /api/questions/:questionHash
- * @access Private
- * @param {string} req.params.questionHash - The 16-character question hash.
- */
-router.delete(
-  '/:questionHash',
-  questionHashParamValidation,
-  deleteQuestionController,
+// POST /api/questions/:questionHash/answer-fit
+router.post(
+  "/:questionHash/answer-fit",
+  getSingleQuestionValidation,
+  assessAnswerAgainstQuestionController,
 );
 
 export default router;

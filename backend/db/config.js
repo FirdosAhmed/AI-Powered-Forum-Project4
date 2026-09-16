@@ -26,11 +26,6 @@ export const safeExecute = async (sql, params) => {
     throw new Error('SQL query must be a non-empty string');
   }
   ensureParams(params);
-  // mysql2 execute() fails on queries with no placeholders + [].
-  if (Array.isArray(params) && params.length === 0 && !sql.includes('?')) {
-    const [result] = await db.query(sql);
-    return result;
-  }
   const [result] = await db.execute(sql, params);
   return result;
 };

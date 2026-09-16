@@ -1,11 +1,5 @@
 import { StatusCodes } from 'http-status-codes';
-import {
-  registerService,
-  loginService,
-  forgotPasswordService,
-  resetPasswordService,
-  verifyResetTokenService,
-} from '../service/auth.service.js';
+import { registerService, loginService } from '../service/auth.service.js';
 
 /**
  * Handles user registration requests.
@@ -55,81 +49,6 @@ export const loginController = async (req, res, next) => {
       message: 'Login successful.',
       user: authResult.user,
       token: authResult.token,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-/**
- * Handles password reset requests by emailing a reset link.
- *
- * Always answers the same way so the response cannot reveal whether an
- * account exists for the submitted address.
- *
- * @param {import('express').Request} req - The Express request object.
- * @param {import('express').Response} res - The Express response object.
- * @param {import('express').NextFunction} next - The Express next function.
- * @returns {Promise<void>}
- */
-export const forgotPasswordController = async (req, res, next) => {
-  try {
-    const { email } = req.body;
-
-    await forgotPasswordService({ email });
-
-    res.status(StatusCodes.OK).json({
-      success: true,
-      message:
-        'If an account exists for that email, a reset link is on its way.',
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-/**
- * Reports whether a reset link is still usable, so the form can say so early.
- *
- * @param {import('express').Request} req - The Express request object.
- * @param {string} req.params.token - The reset token from the email link.
- * @param {import('express').Response} res - The Express response object.
- * @param {import('express').NextFunction} next - The Express next function.
- * @returns {Promise<void>}
- */
-export const verifyResetTokenController = async (req, res, next) => {
-  try {
-    const valid = await verifyResetTokenService({ token: req.params.token });
-
-    res.status(StatusCodes.OK).json({
-      success: true,
-      message: valid ? 'Reset link is valid.' : 'Reset link is not valid.',
-      data: { valid },
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-/**
- * Sets a new password for the holder of a valid reset token.
- *
- * @param {import('express').Request} req - The Express request object.
- * @param {string} req.body.token - The reset token from the email link.
- * @param {string} req.body.password - The new password.
- * @param {import('express').Response} res - The Express response object.
- * @param {import('express').NextFunction} next - The Express next function.
- * @returns {Promise<void>}
- */
-export const resetPasswordController = async (req, res, next) => {
-  try {
-    const { token, password } = req.body;
-
-    await resetPasswordService({ token, password });
-
-    res.status(StatusCodes.OK).json({
-      success: true,
-      message: 'Password updated successfully. Please sign in.',
     });
   } catch (error) {
     next(error);
