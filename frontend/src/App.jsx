@@ -48,6 +48,14 @@ function App() {
               }
             />
             <Route
+              path='/questions/:questionHash'
+              element={
+                <ProtectedRoute>
+                  <h1>Question Detail Page</h1>
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path='/question/:id'
               element={
                 <ProtectedRoute>
