@@ -320,6 +320,30 @@
 | Task ID | Task Name | Description | Reference | Owner | Status |
 | --- | --- | --- | --- | --- | --- |
 | `T-24` & `T-25` | RAG Documents Page | Build the `/rag-documents` page with a document list sidebar, PDF upload dropzone, and an active document view with three tabs: Ask AI, Semantic Search, and PDF Preview. | `/rag-documents/task-rag-documents.md` | TBD | Not set |
+
+
+## Milestone 3: Knowledge Base (RAG)
+
+*Advanced AI functionality allowing users to upload PDFs, perform semantic searches within them, and ask questions grounded in their content.*
+
+### Backend Tasks
+
+| Task ID | Task Name | Description | Reference | Owner | Status |
+| --- | --- | --- | --- | --- | --- |
+| `T-22` | Upload & Process RAG Document | Implement `POST /api/rag/documents` to securely upload PDFs, parse text, chunk paragraphs, and generate vector embeddings. | `/rag/create-document.md` | TBD | Not set |
+| `T-23` | Semantic Search in RAG Document | Implement `GET /api/rag/documents/:documentId/search` to find and return the most relevant text excerpts within a PDF. | `/rag/search-document.md` | TBD | Not set |
+| `T-23` | AI Query Grounded in RAG Document | Implement `POST /api/rag/documents/:documentId/query` to generate AI answers based solely on the uploaded PDF's context. | `/rag/query-document.md` | TBD | Not set |
+| `T-24` | Get RAG Document Metadata | Implement `GET /api/rag/documents/:documentId` to fetch a document's processing status and metadata. | `/rag/get-document-meta.md` | TBD | Not set |
+| `T-24` | Stream RAG Document PDF | Implement `GET /api/rag/documents/:documentId/file` to serve the PDF blob for browser previews. | `/rag/get-document-file.md` | TBD | Not set |
+| `T-24` | List My RAG Documents | Implement `GET /api/rag/documents` to list all PDFs uploaded by the authenticated user. | `/rag/list-documents.md` | TBD | Not set |
+| `T-24` | Delete RAG Document | Implement `DELETE /api/rag/documents/:documentId` to safely remove a PDF from disk and cascade delete its vectors from the database. | `/rag/delete-document.md` | TBD | Not set |
+
+### Frontend Tasks
+
+| Task ID | Task Name | Description | Reference | Owner | Status |
+| --- | --- | --- | --- | --- | --- |
+| `T-24` & `T-25` | RAG Documents Page | Build the `/rag-documents` page with a document list sidebar, PDF upload dropzone, and an active document view with three tabs: Ask AI, Semantic Search, and PDF Preview. | `/rag-documents/task-rag-documents.md` | TBD | Not set |
+
 ## PR Checklist (every PR must include this)
 
 ```markdown
