@@ -77,7 +77,7 @@ export const getQuestionsController = async (req, res, next) => {
     };
 
     // Service builds the dynamic SQL query based on which filters are present
-    const { questions, total } = await getQuestionsService(filters);
+    const { data: questions, meta } = await getQuestionsService(filters);
 
     res.status(StatusCodes.OK).json({
       success: true,
@@ -85,7 +85,7 @@ export const getQuestionsController = async (req, res, next) => {
       data: questions,
       meta: {
         limit: 100, // max records per request (hardcoded per spec)
-        total, // total matching records found
+        total: meta.total, // total matching records found
         sortBy: "newest",
         sortOrder: "desc",
       },
