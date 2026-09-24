@@ -8,7 +8,7 @@ import {
   getVectorConfig,
   normalizeQuestionText,
   storeQuestionVector,
-} from "./vectore.service.js";
+} from "./vector.service.js";
 
 const generateQuestionHash = () => crypto.randomBytes(8).toString("hex");
 
