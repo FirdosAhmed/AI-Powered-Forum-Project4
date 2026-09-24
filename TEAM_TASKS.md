@@ -246,19 +246,103 @@
 
 ---
 
-## Summary Table
+## Milestone Overview
 
-| Person | Phase | Task IDs | Branch | Depends On |
-|--------|-------|----------|--------|------------|
-| **Person 1** | 1 (BE) | T-09, T-10 | `feature/T-09-T-10-questions-core` | — |
-| **Person 2** | 1 (BE) | T-11, T-17, T-18 | `feature/T-11-T-17-T-18-questions-ai` | coordinate w/ P1 |
-| **Person 3** | 1 (BE) | T-12 | `feature/T-12-answers` | — |
-| **Person 4** | 1→2 (BE→FE) | T-22, T-24 (BE) → T-24, T-25 (FE) | `feature/T-22-T-24-rag-core` → `feature/FE-rag-documents` | P5 (for FE) |
-| **Person 5** | 1 (BE) | T-23 | `feature/T-23-rag-ai` | coordinate w/ P4 |
-| **Person 6** | 2 (FE) | T-14, T-15 | `feature/FE-dashboard-post-question` | P1 merged |
-| **Person 7** | 2 (FE) | T-16, T-20, T-21 | `feature/FE-question-detail-my-questions` | P1 + P3 merged |
+| Milestone | Backend task rows | Frontend task rows | Total task rows |
+| --- | ---: | ---: | ---: |
+| 1. Authentication (Auth) | 2 | 4 | 6 |
+| 2. Questions & Answers | 8 | 5 | 13 |
+| 3. Knowledge Base (RAG) | 7 | 1 | 8 |
+| **Total** | **17** | **10** | **27** |
 
----
+## Milestone 1: Authentication (Auth)
+
+*The foundation of user access. Backend APIs and frontend pages are implemented in this milestone.*
+
+### Backend Tasks
+
+| Task ID | Task Name | Description | Reference | Owner | Status |
+| --- | --- | --- | --- | --- | --- |
+| `T-04` | Register User | Implement `POST /api/auth/register` to validate input, hash passwords using bcrypt, and create new user accounts. | `/auth/register.md` | TBD | Not set |
+| `T-05` | Login User | Implement `POST /api/auth/login` to verify user credentials and issue signed JWT tokens for session management. | `/auth/login.md` | TBD | Not set |
+
+### Frontend Tasks
+
+| Task ID | Task Name | Description | Reference | Owner | Status |
+| --- | --- | --- | --- | --- | --- |
+| `T-06` | Axios + Auth Service | Set up Axios interceptors to automatically attach JWT tokens to API requests and handle global 401 unauthorized redirects. | — | TBD | Not set |
+| `T-07` | Auth Page UI | Build the combined Login/Register page at `/auth`, using Framer Motion for smooth form transitions. | `/auth/task-auth.md` | TBD | Not set |
+| `T-08` | AuthContext + ProtectedRoute | Create the global React authentication context and route guards to protect authenticated pages from unauthorized access. | — | TBD | Not set |
+| `T-00` | Public Landing Page | Build the unauthenticated `/` homepage to market the application and direct users to sign up or log in. | `/public/task-landing.md` | TBD | Not set |
+
+## Milestone 2: Questions & Answers
+
+*The core community forum functionality, featuring AI-assisted drafting and answer evaluation.*
+
+### Backend Tasks
+
+| Task ID | Task Name | Description | Reference | Owner | Status |
+| --- | --- | --- | --- | --- | --- |
+| `T-09` | Create Question & Auto-Embed | Implement `POST /api/questions` to save questions and simultaneously generate AI vector embeddings for semantic search. | `/question/create-question.md` | TBD | Not set |
+| `T-10` | List Questions | Implement `GET /api/questions` with support for keyword search and a "mine" filter. | `/question/list-questions.md` | TBD | Not set |
+| `T-10` | Get Single Question Details | Implement `GET /api/questions/:questionHash` to fetch a specific question and all its associated answers. | `/question/single-question.md` | TBD | Not set |
+| `T-11` | Semantic Search Questions | Implement `GET /api/questions/search` to find conceptually related questions using AI vector cosine similarity. | `/question/search-questions.md` | TBD | Not set |
+| `T-11` | Find Similar Questions | Implement `GET /api/questions/:questionHash/similar` to recommend related questions based on an existing question's vector. | `/question/similar-questions.md` | TBD | Not set |
+| `T-12` | Create Answer | Implement `POST /api/answers` to allow users to answer community questions while preventing them from answering their own. | `/answer/create-answer.md` | TBD | Not set |
+| `T-17` | AI Question Draft Coach | Implement `POST /api/questions/draft-coach` to provide real-time AI feedback and tips on question drafts. | `/question/draft-coach.md` | TBD | Not set |
+| `T-18` | AI Answer Fit Evaluation | Implement `POST /api/questions/:questionHash/answer-fit` to evaluate how strongly a draft answer addresses the question. | `/question/answer-fit.md` | TBD | Not set |
+
+### Frontend Tasks
+
+| Task ID | Task Name | Description | Reference | Owner | Status |
+| --- | --- | --- | --- | --- | --- |
+| `T-13` | Layout Shell | Create the `Layout`, `Navbar`, and `Sidebar` components to wrap and navigate between protected routes. | — | Ferdos | Not set |
+| `T-14` | Dashboard Page | Build the `/dashboard` page to list questions and handle keyword and semantic search inputs. | `/dashboard/task-dashboard.md` | Mussa | Not set |
+| `T-15` | Post Question Page | Build the `/questions/ask` form, integrating the AI Draft Coach for real-time writing feedback. | `/post-question/task-post-question.md` | TBD | Not set |
+| `T-16` & `T-20` | Question Detail Page | Build the `/questions/:questionHash` page to display the question, answers, and a new answer form equipped with AI Answer Fit. | `/question-detail/task-question-detail.md` | TBD | Not set |
+| `T-21` | My Questions Page | Build the `/my-questions` page to display a personalized list containing only the user's authored questions. | `/my-questions/task-my-questions.md` | TBD | Not set |
+
+
+### Backend Tasks
+
+| Task ID | Task Name | Description | Reference | Owner | Status |
+| --- | --- | --- | --- | --- | --- |
+| `T-22` | Upload & Process RAG Document | Implement `POST /api/rag/documents` to securely upload PDFs, parse text, chunk paragraphs, and generate vector embeddings. | `/rag/create-document.md` | TBD | Not set |
+| `T-23` | Semantic Search in RAG Document | Implement `GET /api/rag/documents/:documentId/search` to find and return the most relevant text excerpts within a PDF. | `/rag/search-document.md` | TBD | Not set |
+| `T-23` | AI Query Grounded in RAG Document | Implement `POST /api/rag/documents/:documentId/query` to generate AI answers based solely on the uploaded PDF's context. | `/rag/query-document.md` | TBD | Not set |
+| `T-24` | Get RAG Document Metadata | Implement `GET /api/rag/documents/:documentId` to fetch a document's processing status and metadata. | `/rag/get-document-meta.md` | TBD | Not set |
+| `T-24` | Stream RAG Document PDF | Implement `GET /api/rag/documents/:documentId/file` to serve the PDF blob for browser previews. | `/rag/get-document-file.md` | TBD | Not set |
+| `T-24` | List My RAG Documents | Implement `GET /api/rag/documents` to list all PDFs uploaded by the authenticated user. | `/rag/list-documents.md` | TBD | Not set |
+| `T-24` | Delete RAG Document | Implement `DELETE /api/rag/documents/:documentId` to safely remove a PDF from disk and cascade delete its vectors from the database. | `/rag/delete-document.md` | TBD | Not set |
+
+### Frontend Tasks
+
+| Task ID | Task Name | Description | Reference | Owner | Status |
+| --- | --- | --- | --- | --- | --- |
+| `T-24` & `T-25` | RAG Documents Page | Build the `/rag-documents` page with a document list sidebar, PDF upload dropzone, and an active document view with three tabs: Ask AI, Semantic Search, and PDF Preview. | `/rag-documents/task-rag-documents.md` | TBD | Not set |
+
+
+## Milestone 3: Knowledge Base (RAG)
+
+*Advanced AI functionality allowing users to upload PDFs, perform semantic searches within them, and ask questions grounded in their content.*
+
+### Backend Tasks
+
+| Task ID | Task Name | Description | Reference | Owner | Status |
+| --- | --- | --- | --- | --- | --- |
+| `T-22` | Upload & Process RAG Document | Implement `POST /api/rag/documents` to securely upload PDFs, parse text, chunk paragraphs, and generate vector embeddings. | `/rag/create-document.md` | Eyob | Not set |
+| `T-23` | Semantic Search in RAG Document | Implement `GET /api/rag/documents/:documentId/search` to find and return the most relevant text excerpts within a PDF. | `/rag/search-document.md` | mussa | Not set |
+| `T-23` | AI Query Grounded in RAG Document | Implement `POST /api/rag/documents/:documentId/query` to generate AI answers based solely on the uploaded PDF's context. | `/rag/query-document.md` | sadik| Not set |
+| `T-24` | Get RAG Document Metadata | Implement `GET /api/rag/documents/:documentId` to fetch a document's processing status and metadata. | `/rag/get-document-meta.md` | mahamud | Not set |
+| `T-24` | Stream RAG Document PDF | Implement `GET /api/rag/documents/:documentId/file` to serve the PDF blob for browser previews. | `/rag/get-document-file.md` | firdos | Not set |
+| `T-24` | List My RAG Documents | Implement `GET /api/rag/documents` to list all PDFs uploaded by the authenticated user. | `/rag/list-documents.md` | israel | Not set |
+| `T-24` | Delete RAG Document | Implement `DELETE /api/rag/documents/:documentId` to safely remove a PDF from disk and cascade delete its vectors from the database. | `/rag/delete-document.md` | yonatan| Not set |
+
+### Frontend Tasks
+
+| Task ID | Task Name | Description | Reference | Owner | Status |
+| --- | --- | --- | --- | --- | --- |
+| `T-24` & `T-25` | RAG Documents Page | Build the `/rag-documents` page with a document list sidebar, PDF upload dropzone, and an active document view with three tabs: Ask AI, Semantic Search, and PDF Preview. | `/rag-documents/task-rag-documents.md` | Mussa| Not set |
 
 ## PR Checklist (every PR must include this)
 

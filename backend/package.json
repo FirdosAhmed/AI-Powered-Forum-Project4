@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "nodemon index.js",
+
+    "dev": "node --watch index.js",
     "start": "node index.js",
     "test": "node --test"
   },
@@ -23,6 +24,10 @@
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.1.1",
     "mysql2": "^3.18.2",
+    "nodemon": "^3.1.14",
     "pdf-parse": "^2.4.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
   }
 }
