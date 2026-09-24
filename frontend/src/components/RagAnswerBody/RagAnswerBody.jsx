@@ -7,7 +7,8 @@ import { Copy, Check } from 'lucide-react';
 import styles from './RagAnswerBody.module.css';
 
 /**
- * @param {{ children: string }} props
+ * @param {{ children: string }} props - Markdown source in `children`.
+ * @returns {JSX.Element | null} Styled markdown, or null when empty.
  */
 export default function RagAnswerBody({ children }) {
   const text = typeof children === 'string' ? children : '';
@@ -73,6 +74,12 @@ export default function RagAnswerBody({ children }) {
   );
 }
 
+/**
+ * Fenced code block with a copy button.
+ *
+ * @param {{ children: import('react').ReactNode }} props - Inner `<code>` from react-markdown.
+ * @returns {JSX.Element} Preformatted block plus copy control.
+ */
 function CodeBlock({ children }) {
   const preRef = useRef(null);
   const [copied, setCopied] = useState(false);
