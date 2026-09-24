@@ -1,9 +1,6 @@
 import crypto from "crypto";
 import { safeExecute } from "../../../../db/config.js";
-import {
-  BadRequestError,
-  NotFoundError,
-} from "../../../utils/errors/index.js";
+import { BadRequestError, NotFoundError } from "../../../utils/errors/index.js";
 import {
   findSimilarQuestionsByQuestionId,
   findSimilarQuestionsByText,
@@ -97,12 +94,12 @@ export const createQuestionWithVectorService = async (payload) => {
       embedding: [],
       status: "failed",
     }).catch((e) => console.error("Failed to save failed status", e));
-
-    // Return the created question object
-    return {
-      question: creationResult,
-    };
   }
+
+  // Return the created question object
+  return {
+    question: creationResult,
+  };
 };
 
 const buildQuestionFilters = (filters) => {
@@ -219,7 +216,7 @@ export const getSingleQuestionService = async ({
     };
   }
 
-  const questionId = question.id;
+  const questionId = questionRows[0].id;
 
   const answersSql = `
   SELECT
@@ -240,17 +237,17 @@ export const getSingleQuestionService = async ({
 
   return {
     question: {
-      id: question.id,
-      questionHash: question.questionHash,
-      title: question.title,
-      content: question.content,
-      answerCount: question.answerCount,
-      createdAt: question.createdAt,
-      updatedAt: question.updatedAt,
+      id: questionRows[0].id,
+      questionHash: questionRows[0].questionHash,
+      title: questionRows[0].title,
+      content: questionRows[0].content,
+      answerCount: questionRows[0].answerCount,
+      createdAt: questionRows[0].createdAt,
+      updatedAt: questionRows[0].updatedAt,
       author: {
-        id: question.userId,
-        firstName: question.firstName,
-        lastName: question.lastName,
+        id: questionRows[0].userId,
+        firstName: questionRows[0].firstName,
+        lastName: questionRows[0].lastName,
       },
     },
     answers: answers.map((answer) => ({
