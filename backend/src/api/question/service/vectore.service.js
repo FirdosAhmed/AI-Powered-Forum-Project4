@@ -1,8 +1,6 @@
-
 import { GoogleGenAI } from "@google/genai";
 import { safeExecute } from "../../../../db/config.js";
 import { ServiceUnavailableError } from "../../../../utils/errors/index.js";
-
 const GEMINI_EMBEDDING_MODEL =
 	process.env.GEMINI_EMBEDDING_MODEL;
 
@@ -353,8 +351,7 @@ export async function findSimilarQuestionsByText({ sourceText, threshold, k }) {
 
 	// Fetch question details using IN clause
 	const questionIds = topResults.map((r) => r.questionId);
-	const placeholders = questionIds.map(() => "?").join(",");/
-
+	const placeholders = questionIds.map(() => "?").join(",");
 	const sql = `
         SELECT
             q.question_id AS questionId,
