@@ -146,7 +146,7 @@ export const searchQuestionsSemanticController = async (req, res, next) => {
 
     // Service embeds the query, fetches all stored vectors, computes cosine
     // similarity for each, filters by threshold, and returns the top k results
-    const { results } = await searchQuestionsSemanticService({
+    const { data, meta } = await searchQuestionsSemanticService({
       query,
       k,
       threshold,
@@ -155,14 +155,8 @@ export const searchQuestionsSemanticController = async (req, res, next) => {
     res.status(StatusCodes.OK).json({
       success: true,
       message: "Semantic search completed successfully",
-      data: results, // each result includes a 'score' field (cosine similarity 0–1)
-      meta: {
-        total: results.length,
-        k,
-        threshold,
-        query,
-        questionHash: null, // not applicable for text-based search
-      },
+      data,
+      meta,
     });
   } catch (error) {
     next(error);
@@ -185,7 +179,7 @@ export const getSimilarQuestionsController = async (req, res, next) => {
 
     // Service looks up the source question's vector, computes cosine similarity
     // against all other stored vectors, and returns the top matches
-    const { results } = await getSimilarQuestionsService({
+    const { data, meta } = await getSimilarQuestionsService({
       questionHash,
       k,
       threshold,
@@ -194,14 +188,8 @@ export const getSimilarQuestionsController = async (req, res, next) => {
     res.status(StatusCodes.OK).json({
       success: true,
       message: "Similar questions fetched successfully",
-      data: results,
-      meta: {
-        total: results.length,
-        k,
-        threshold,
-        query: null, // not applicable for hash-based search
-        questionHash, // echoed back so the client knows which question was the source
-      },
+      data,
+      meta,
     });
   } catch (error) {
     next(error);

@@ -460,7 +460,7 @@ export async function findSimilarQuestionsByQuestionId({
 		}
         // Parse  source embedding from JSON string to array if necessary    
 
-	let sourceEmbedding =
+	sourceEmbedding =
 			typeof row.embedding === "string"
 				? JSON.parse(row.embedding)
 				: row.embedding;
