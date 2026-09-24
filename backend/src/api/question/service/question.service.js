@@ -68,9 +68,8 @@ export const createQuestionWithVectorService = async (payload) => {
 
   try {
     // Generate the vector embedding for the normalized question text
-    const embeddingResult = await generateQuestionEmbedding(sourceText, {
-      questionId: creationResult.id,
-    });
+    // taskType defaults to RETRIEVAL_DOCUMENT — correct for storing indexed content
+    const embeddingResult = await generateQuestionEmbedding(sourceText);
 
     // Store the generated vector embedding in the database with a 'ready' status
     await storeQuestionVector({

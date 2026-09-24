@@ -140,12 +140,15 @@ export const getSingleQuestionController = async (req, res, next) => {
 // This means it understands meaning, not just matching keywords.
 export const searchQuestionsSemanticController = async (req, res, next) => {
   try {
-    const query = req.query.query; // the search text (min 5 chars)
-    const k = req.query.k ?? DEFAULT_K; // max results to return (default 5)
-    const threshold = req.query.threshold ?? RECOMMEND_THRESHOLD; // min similarity score (default 0.75)
+    const query = req.query.query;
+    // Validation middleware (.toInt() / .toFloat()) coerces these when present,
+    // but we also guard the defaults here so the service always gets numbers.
+    const k = req.query.k !== undefined ? Number(req.query.k) : DEFAULT_K;
+    const threshold =
+      req.query.threshold !== undefined
+        ? Number(req.query.threshold)
+        : RECOMMEND_THRESHOLD;
 
-    // Service embeds the query, fetches all stored vectors, computes cosine
-    // similarity for each, filters by threshold, and returns the top k results
     const { data, meta } = await searchQuestionsSemanticService({
       query,
       k,
@@ -173,12 +176,13 @@ export const searchQuestionsSemanticController = async (req, res, next) => {
 // embeddings. The source question itself is excluded from results.
 export const getSimilarQuestionsController = async (req, res, next) => {
   try {
-    const { questionHash } = req.params; // the source question's hash
-    const k = req.query.k ?? DEFAULT_K; // how many similar questions to return
-    const threshold = req.query.threshold ?? RECOMMEND_THRESHOLD; // similarity cutoff
+    const { questionHash } = req.params;
+    const k = req.query.k !== undefined ? Number(req.query.k) : DEFAULT_K;
+    const threshold =
+      req.query.threshold !== undefined
+        ? Number(req.query.threshold)
+        : RECOMMEND_THRESHOLD;
 
-    // Service looks up the source question's vector, computes cosine similarity
-    // against all other stored vectors, and returns the top matches
     const { data, meta } = await getSimilarQuestionsService({
       questionHash,
       k,

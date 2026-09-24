@@ -210,8 +210,9 @@
   gap: 0.35rem;
 }
 
+/* AI Search mode — same orange family, slightly darker to distinguish */
 .dashboard__feedBadge--semantic {
-  background-color: #8b5cf6; /* Purple for AI search */
+  background-color: var(--primary-dark);
 }
 
 /* ============================================================
@@ -425,7 +426,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  color: #8b5cf6;
+  color: var(--primary);
   font-weight: var(--font-medium);
 }
 

@@ -62,7 +62,7 @@ function App() {
               path="/question/:id"
               element={
                 <ProtectedRoute>
-                  <h1>Question Detail Page</h1>
+                  <QuestionDetail />
                 </ProtectedRoute>
               }
             />
@@ -70,7 +70,12 @@ function App() {
               path="/rag-documents"
               element={
                 <ProtectedRoute>
-                  <h1>RAG Documents Page</h1>
+                  <div style={{ padding: '2rem' }}>
+                    <h2 style={{ marginBottom: '0.5rem' }}>Knowledge Base</h2>
+                    <p style={{ color: '#475569', fontSize: '0.875rem' }}>
+                      RAG document upload and search — coming soon.
+                    </p>
+                  </div>
                 </ProtectedRoute>
               }
             />
