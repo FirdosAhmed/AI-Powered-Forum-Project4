@@ -1,6 +1,6 @@
 import path from "path";
 import fs from "fs/promises";
-import { PDFParse } from "pdf-parse";
+import pdfParse from "pdf-parse";
 import { GoogleGenAI } from "@google/genai";
 import { safeExecute } from "../../../../db/config.js";
 import {
@@ -162,9 +162,7 @@ export async function createDocumentFromUploadService({ file, userId }) {
 
   try {
     const fileBuffer = await fs.readFile(file.path);
-    const parser = new PDFParse({ data: fileBuffer });
-    const pdfData = await parser.getText();
-    await parser.destroy();
+    const pdfData = await pdfParse(fileBuffer);
     const rawText = pdfData.text.trim();
 
     if (!rawText) {

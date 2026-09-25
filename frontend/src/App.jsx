@@ -5,18 +5,18 @@
  *
  * @returns {JSX.Element} The router tree wrapped in `AuthProvider`.
  */
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './contexts/AuthContext';
-import Layout from './components/Layout/Layout';
-import ProtectedRoute from './components/ProtectedRoute/ProtectedRoute';
-import Auth from './pages/Auth/Auth';
-import Dashboard from './pages/Dashboard/Dashboard';
-import Landing from './pages/Landing/Landing';
+import React from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider } from "./contexts/AuthContext";
+import Layout from "./components/Layout/Layout";
+import ProtectedRoute from "./components/ProtectedRoute/ProtectedRoute";
+import Auth from "./pages/Auth/Auth";
+import Dashboard from "./pages/Dashboard/Dashboard";
+import Landing from "./pages/Landing/Landing";
 import PostQuestion from "./pages/PostQuestion/PostQuestion";
-import MyQuestions from './pages/MyQuestions/MyQuestions';
-import QuestionDetail from './pages/QuestionDetail/QuestionDetail';
-import RagDocuments from './pages/RagDocuments/RagDocuments';
+import MyQuestions from "./pages/MyQuestions/MyQuestions";
+import QuestionDetail from "./pages/QuestionDetail/QuestionDetail";
+import RagDocuments from "./pages/RagDocuments/RagDocuments";
 
 /**
  * Top-level route tree.
