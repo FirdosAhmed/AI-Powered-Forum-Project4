@@ -70,7 +70,7 @@ function App() {
               path="/question/:id"
               element={
                 <ProtectedRoute>
-                  <h1>Question Detail Page</h1>
+                  <QuestionDetail />
                 </ProtectedRoute>
               }
             />

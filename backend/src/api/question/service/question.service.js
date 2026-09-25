@@ -7,6 +7,7 @@ import {
   generateQuestionEmbedding,
   getVectorConfig,
   normalizeQuestionText,
+  reEmbedFailedQuestions,
   storeQuestionVector,
 } from "./vector.service.js";
 
@@ -61,16 +62,16 @@ export const createQuestionWithVectorService = async (payload) => {
     userId,
   };
 
-  // Normalize the question text (e.g., title) to prepare it for vector embedding
+  // Normalize title + content together so the embedding captures full meaning
   const sourceText = normalizeQuestionText({
     title: payload.title,
+    content: payload.content,
   });
 
   try {
     // Generate the vector embedding for the normalized question text
-    const embeddingResult = await generateQuestionEmbedding(sourceText, {
-      questionId: creationResult.id,
-    });
+    // taskType defaults to RETRIEVAL_DOCUMENT — correct for storing indexed content
+    const embeddingResult = await generateQuestionEmbedding(sourceText);
 
     // Store the generated vector embedding in the database with a 'ready' status
     await storeQuestionVector({
@@ -299,6 +300,10 @@ export const searchQuestionsSemanticService = async ({
       total: result.similarQuestions.length,
     },
   };
+};
+
+export const backfillFailedEmbeddingsService = async () => {
+  return await reEmbedFailedQuestions();
 };
 
 export const getSimilarQuestionsService = async ({

@@ -77,7 +77,9 @@ export async function searchQuestionsSemantic(query, { k, threshold } = {}) {
     if (k !== undefined) params.k = k;
     if (threshold !== undefined) params.threshold = threshold;
 
-    const response = await apiClient.get('/api/questions/search', { params });
+    // Semantic search calls the Gemini API server-side before querying the DB,
+    // so it can take longer than the default 10s timeout.
+    const response = await apiClient.get('/api/questions/search', { params, timeout: 30000 });
     const payload = response.data;
 
     const results = Array.isArray(payload?.data)
@@ -129,6 +131,35 @@ export async function createQuestion({ title, content }) {
 }
 
 /**
+ * Fetches questions semantically similar to the given question hash.
+ * @param {string} questionHash
+ * @param {Object} [options]
+ * @param {number} [options.k]
+ * @param {number} [options.threshold]
+ * @returns {Promise<{ data: Array, meta: Object }>}
+ */
+export async function getSimilarQuestions(questionHash, { k, threshold } = {}) {
+  try {
+    const params = {};
+    if (k !== undefined) params.k = k;
+    if (threshold !== undefined) params.threshold = threshold;
+
+    const response = await apiClient.get(
+      `/api/questions/${questionHash}/similar`,
+      { params, timeout: 30000 },
+    );
+    const payload = response.data;
+
+    return {
+      data: Array.isArray(payload?.data) ? payload.data : [],
+      meta: payload?.meta || {},
+    };
+  } catch (error) {
+    throw handleQuestionError(error);
+  }
+}
+
+/**
  * Requests AI Draft Coach feedback for a draft title and content.
  * @param {Object} payload - { title, content }
  * @returns {Promise<Object>}
@@ -167,6 +198,7 @@ export const questionService = {
   getQuestions,
   searchQuestionsSemantic,
   getSingleQuestion,
+  getSimilarQuestions,
   createQuestion,
   generateQuestionDraftCoach,
   assessAnswerFit,

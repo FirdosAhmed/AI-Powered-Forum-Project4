@@ -1,14 +1,12 @@
-
 import { GoogleGenAI } from "@google/genai";
 import { safeExecute } from "../../../../db/config.js";
 import { ServiceUnavailableError } from "../../../utils/errors/index.js";
 
 const GEMINI_EMBEDDING_MODEL =
-	process.env.GEMINI_EMBEDDING_MODEL;
-
+	process.env.GEMINI_EMBEDDING_MODEL || "gemini-embedding-001";
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-const RECOMMEND_THRESHOLD = Number(process.env.RECOMMEND_THRESHOLD) || 0.75;
+const RECOMMEND_THRESHOLD = Number(process.env.RECOMMEND_THRESHOLD) || 0.4;
 const RECOMMEND_K = Number(process.env.RECOMMEND_K) || 5;
 
 if (!GEMINI_API_KEY) {
@@ -17,85 +15,84 @@ if (!GEMINI_API_KEY) {
 
 const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
+// ---------------------------------------------------------------------------
+// Text helpers
+// ---------------------------------------------------------------------------
+
 /**
- * Utility to collapse consecutive whitespace characters into a single space
- * and trim leading/trailing whitespace for consistent text formatting.
- * @param {string} value - The input text to normalize.
- * @returns {string} The normalized text with collapsed whitespace and trimmed ends.
+ * Collapse consecutive whitespace into a single space and trim ends.
+ * @param {string} value
+ * @returns {string}
  */
 function normalizeWhitespace(value) {
 	return value.replace(/\s+/g, " ").trim();
 }
 
 /**
- * Normalize the question title by converting to lowercase, applying Unicode NFKC normalization,
- * and collapsing multiple whitespace characters into single spaces. This ensures consistent
- * text formatting for downstream tasks such as duplicate detection and vector generation.
- *
- * @example "What's NEW in    AI?" → "what's new in ai?"
- * @param {Object} params - An object containing the question title.
- * @param {string} params.title - The question title.
- * @returns {string} The normalized question text.
+ * Normalize question text to lowercase NFKC for consistent embedding input.
+ * Combines title and optional content so the embedding captures full meaning.
+ * @example ({ title: "Sort arrays?", content: "Using JS" }) → "sort arrays? using js"
+ * @param {Object} params
+ * @param {string} params.title
+ * @param {string} [params.content]
+ * @returns {string}
  */
-export function normalizeQuestionText({ title }) {
-	return normalizeWhitespace(`${title || ""}`.normalize("NFKC").toLowerCase());
+export function normalizeQuestionText({ title, content }) {
+	const titlePart = `${title || ""}`.normalize("NFKC").toLowerCase();
+	const contentPart = `${content || ""}`.normalize("NFKC").toLowerCase();
+	return normalizeWhitespace(contentPart ? `${titlePart} ${contentPart}` : titlePart);
 }
 
+// ---------------------------------------------------------------------------
+// Math
+// ---------------------------------------------------------------------------
+
 /**
- * Calculate cosine similarity between two embedding vectors.
+ * Cosine similarity between two equal-length vectors.
+ * Formula: cos(θ) = (A · B) / (‖A‖ × ‖B‖)
  *
- * Formula: cos(θ) = (A · B) / (||A|| × ||B||)
- *
- * @param {number[]} vectorA - First embedding vector.
- * @param {number[]} vectorB - Second embedding vector.
- * @returns {number} Similarity score between -1 and 1 (typically 0 to 1 for embeddings).
- * @throws {Error} If vectors have di fferent lengths.
+ * @param {number[]} vectorA
+ * @param {number[]} vectorB
+ * @returns {number} Score in [-1, 1] (typically [0, 1] for embeddings).
+ * @throws {Error} If vectors differ in length.
  */
 export function calculateCosineSimilarity(vectorA, vectorB) {
-	// Validate vectors have same length
 	if (vectorA.length !== vectorB.length) {
 		throw new Error(
 			`Vectors must have the same length. Got ${vectorA.length} and ${vectorB.length}.`,
 		);
 	}
 
-	// Calculate dot product (sum of element-wise multiplication)
 	let dotProduct = 0;
+	let magnitudeA = 0;
+	let magnitudeB = 0;
+
 	for (let i = 0; i < vectorA.length; i++) {
 		dotProduct += vectorA[i] * vectorB[i];
-	}
-
-	// Calculate magnitude of vectorA (square root of sum of squares)
-	let magnitudeA = 0;
-	for (let i = 0; i < vectorA.length; i++) {
 		magnitudeA += vectorA[i] * vectorA[i];
-	}
-	magnitudeA = Math.sqrt(magnitudeA);
-	// Calculate magnitude of vectorB (square root of sum of squares)
-	let magnitudeB = 0;
-	for (let i = 0; i < vectorB.length; i++) {
 		magnitudeB += vectorB[i] * vectorB[i];
 	}
+
+	magnitudeA = Math.sqrt(magnitudeA);
 	magnitudeB = Math.sqrt(magnitudeB);
 
-	// Handle edge case: return 0 if either magnitude is 0
-	if (magnitudeA === 0 || magnitudeB === 0) {
-		return 0;
-	}
+	if (magnitudeA === 0 || magnitudeB === 0) return 0;
 
-	// Return dot product divided by product of magnitudes
 	return dotProduct / (magnitudeA * magnitudeB);
 }
 
+// ---------------------------------------------------------------------------
+// Gemini embedding
+// ---------------------------------------------------------------------------
+
 /**
- * Generate a normalized embedding for the provided question text using the Gemini API.
+ * Generate a vector embedding for `sourceText` using the Gemini API.
  *
- * @param {string} sourceText - The text to embed.
- * @param {Object} [options] - Optional parameters to customize the embedding generation.
- * @param {string} [options.taskType='RETRIEVAL_DOCUMENT'] - The specific Gemini task type.
- *        Use 'RETRIEVAL_QUERY' when generating embeddings for user searches.
- * @returns {Promise<{embedding: Array<number>}>} The normalized embedding vector.
- * @throws {Error} If the embedding response is invalid or missing values.
+ * @param {string} sourceText - Text to embed.
+ * @param {Object} [options]
+ * @param {string} [options.taskType='RETRIEVAL_DOCUMENT'] - Use 'RETRIEVAL_QUERY' for search queries.
+ * @returns {Promise<{ embedding: number[] }>} 768-dimensional embedding vector.
+ * @throws {Error} If the Gemini response is missing or invalid.
  */
 export async function generateQuestionEmbedding(sourceText, options = {}) {
 	const { taskType = "RETRIEVAL_DOCUMENT" } = options;
@@ -105,58 +102,61 @@ export async function generateQuestionEmbedding(sourceText, options = {}) {
 			model: GEMINI_EMBEDDING_MODEL,
 			contents: sourceText,
 			config: {
-				taskType: taskType,
+				taskType,
 				outputDimensionality: 768,
 			},
 		});
 
-		const embeddingLength = response.embeddings[0].values.length;
-		console.log(`Length of embedding: ${embeddingLength}`);
-
-		const values = response.embeddings[0].values;
+		// Guard before accessing nested value — prevents TypeError on bad responses
+		const values = response?.embeddings?.[0]?.values;
 
 		if (!Array.isArray(values) || values.length === 0) {
 			throw new Error("Gemini embedding response does not contain values.");
 		}
 
-		return {
-			embedding: values,
-		};
+		return { embedding: values };
 	} catch (error) {
-		console.error("[Error]:", error);
+		console.error("[generateQuestionEmbedding error]:", error);
 		console.error("***************************");
 		throw error;
 	}
 }
 
+// ---------------------------------------------------------------------------
+// Embedding validation
+// ---------------------------------------------------------------------------
+
 /**
- * Validate that an embedding is a valid array of numbers.
- * @param {Array} embedding - The embedding to validate.
- * @throws {Error} If embedding is invalid.
+ * Assert that `embedding` is a non-empty array of finite numbers.
+ * @param {unknown} embedding
+ * @throws {Error}
  */
 function validateEmbedding(embedding) {
 	if (!Array.isArray(embedding)) {
 		throw new Error("Embedding must be an array.");
 	}
-
 	if (embedding.length === 0) {
 		throw new Error("Embedding cannot be empty.");
 	}
-
-	if (embedding.every((v) => typeof v !== "number" || isNaN(v))) {
+	// FIX: was `.every(invalid)` — should throw when ANY value is invalid
+	if (!embedding.every((v) => typeof v === "number" && !isNaN(v))) {
 		throw new Error("Embedding must contain only valid numbers.");
 	}
 }
 
+// ---------------------------------------------------------------------------
+// Vector storage
+// ---------------------------------------------------------------------------
+
 /**
- * Store or update embedding vector in MySQL question_vectors table.
- * Uses INSERT ... ON DUPLICATE KEY UPDATE for upsert behavior.
+ * Upsert an embedding vector into `question_vectors`.
+ * Passing an empty array or status='failed' stores a failed record.
  *
- * @param {Object} payload - The payload containing question and embedding data.
- * @param {number|string} payload.questionId - The ID of the question.
- * @param {string} payload.sourceText - The normalized source text used for embedding.
- * @param {Array<number>} payload.embedding - The full-dimensional embedding vector.
- * @param {string} [payload.status="ready"] - The status of the vector (e.g., 'ready', 'failed').
+ * @param {Object} payload
+ * @param {number|string} payload.questionId
+ * @param {string}        payload.sourceText  - Normalized text used to generate the embedding.
+ * @param {number[]}      [payload.embedding] - The 768-dim vector.
+ * @param {string}        [payload.status]    - 'ready' | 'failed'. Defaults to 'ready'.
  * @returns {Promise<void>}
  */
 export async function storeQuestionVector({
@@ -165,99 +165,80 @@ export async function storeQuestionVector({
 	embedding = [],
 	status = "ready",
 }) {
-	// Handle empty embeddings for failed status
-	if (status === "failed" || !embedding || embedding.length === 0) {
-		const sql = `
-            INSERT INTO question_vectors (question_id, source_text, embedding, status)
-            VALUES (?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE
-                source_text = VALUES(source_text),
-                embedding = VALUES(embedding),
-                status = VALUES(status),
-                updated_at = CURRENT_TIMESTAMP
-        `;
+	// Treat missing / empty embedding as a failure regardless of what status says
+	const resolvedStatus =
+		status === "failed" || !embedding || embedding.length === 0
+			? "failed"
+			: status;
 
-		await safeExecute(sql, [
-			questionId,
-			sourceText,
-			JSON.stringify(embedding),
-			"failed",
-		]);
-		return;
+	// Only validate when we actually expect a usable embedding
+	if (resolvedStatus === "ready") {
+		validateEmbedding(embedding);
 	}
 
-	// Validate embedding before storage
-	validateEmbedding(embedding);
+	const embeddingJson = JSON.stringify(resolvedStatus === "failed" ? [] : embedding);
 
-	// Store embedding as JSON string using JSON.stringify()
-	const embeddingJson = JSON.stringify(embedding);
-
-	// Implement MySQL INSERT ... ON DUPLICATE KEY UPDATE for upsert
+	// Single SQL path — no duplication
 	const sql = `
-        INSERT INTO question_vectors (question_id, source_text, embedding, status)
-        VALUES (?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE
-            source_text = VALUES(source_text),
-            embedding = VALUES(embedding),
-            status = VALUES(status),
-            updated_at = CURRENT_TIMESTAMP
-    `;
+		INSERT INTO question_vectors (question_id, source_text, embedding, status)
+		VALUES (?, ?, ?, ?)
+		ON DUPLICATE KEY UPDATE
+			source_text   = VALUES(source_text),
+			embedding     = VALUES(embedding),
+			status        = VALUES(status),
+			updated_at    = CURRENT_TIMESTAMP
+	`;
 
 	try {
-		await safeExecute(sql, [questionId, sourceText, embeddingJson, status]);
+		await safeExecute(sql, [questionId, sourceText, embeddingJson, resolvedStatus]);
 	} catch (error) {
 		console.error("=== MYSQL UPSERT ERROR ===");
 		console.error("Operation: storeQuestionVector");
 		console.error("Question ID:", questionId);
 		console.error("Embedding length:", embedding.length);
-		console.error("Status:", status);
-		console.error("SQL:", sql.trim().replace(/\s+/g, " "));
+		console.error("Status:", resolvedStatus);
 		console.error("Error:", error);
 		console.error("***************************");
 		throw error;
 	}
 }
 
+// ---------------------------------------------------------------------------
+// Embedding retrieval
+// ---------------------------------------------------------------------------
+
 /**
- * Retrieve all ready embeddings from MySQL question_vectors table.
- * Parses JSON embedding strings to JavaScript arrays and validates them.
- * Invalid embeddings are skipped with a warning logged.
+ * Fetch all 'ready' embeddings ordered newest first (highest question_id first).
+ * Invalid JSON rows are skipped with a warning.
  *
- * @returns {Promise<Array<{questionId: number, embedding: number[]}>>} Array of question embeddings
+ * @returns {Promise<Array<{ questionId: number, embedding: number[] }>>}
  */
 export async function retrieveReadyEmbeddings() {
-	// Query question_vectors table with status='ready' filter
+	// ORDER BY question_id DESC → newest questions come first
 	const sql = `
-        SELECT question_id, embedding
-        FROM question_vectors
-        WHERE status = ?
-    `;
+		SELECT question_id, embedding
+		FROM question_vectors
+		WHERE status = ?
+		ORDER BY question_id DESC
+	`;
 
 	try {
 		const rows = await safeExecute(sql, ["ready"]);
 
-		// Parse and validate embeddings
 		const embeddings = [];
 		for (const row of rows) {
 			try {
-				// The database driver might already parse JSON columns into objects/arrays.
-				// If it's already an array, use it directly; otherwise, parse it.
 				const embedding =
 					typeof row.embedding === "string"
 						? JSON.parse(row.embedding)
 						: row.embedding;
 
-				// Add valid embedding to results
-				embeddings.push({
-					questionId: row.question_id,
-					embedding: embedding,
-				});
+				embeddings.push({ questionId: row.question_id, embedding });
 			} catch (parseError) {
 				console.warn(
 					`Skipping question ${row.question_id}: failed to parse embedding JSON`,
 					parseError,
 				);
-				continue;
 			}
 		}
 
@@ -271,20 +252,82 @@ export async function retrieveReadyEmbeddings() {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// Similarity search helpers (shared by both find* functions)
+// ---------------------------------------------------------------------------
+
 /**
- * Find similar questions by generating an embedding for the provided text and searching MySQL.
- * @param {Object} params - Search parameters.
- * @param {string} params.sourceText - The text to search for similar questions.
- * @param {number} params.threshold - Minimum similarity score threshold.
- * @param {number} params.k - Maximum number of results to return.
- * @returns {Promise<Object>} The generated embedding and similar questions.
+ * Build a question-details map from a list of question IDs, ordered newest first.
+ * Used by both findSimilarQuestionsByText and findSimilarQuestionsByQuestionId.
+ *
+ * @param {number[]} questionIds
+ * @returns {Promise<Object>} Map of String(questionId) → question object
+ */
+async function fetchQuestionDetails(questionIds) {
+	const placeholders = questionIds.map(() => "?").join(",");
+
+	const sql = `
+		SELECT
+			q.question_id  AS questionId,
+			q.question_hash AS questionHash,
+			q.title,
+			q.content,
+			q.created_at   AS createdAt,
+			q.updated_at   AS updatedAt,
+			u.user_id      AS userId,
+			u.first_name   AS firstName,
+			u.last_name    AS lastName,
+			COUNT(DISTINCT a.answer_id) AS answerCount
+		FROM questions q
+		JOIN  users   u ON u.user_id      = q.user_id
+		LEFT JOIN answers a ON a.question_id = q.question_id
+		WHERE q.question_id IN (${placeholders})
+		GROUP BY q.question_id, u.user_id
+		ORDER BY q.question_id DESC
+	`;
+
+	const rows = await safeExecute(sql, questionIds);
+
+	const map = {};
+	for (const row of rows) {
+		map[String(row.questionId)] = {
+			id: row.questionId,
+			questionHash: row.questionHash,
+			title: row.title,
+			content: row.content,
+			answerCount: row.answerCount,
+			createdAt: row.createdAt,
+			updatedAt: row.updatedAt,
+			author: {
+				id: row.userId,
+				firstName: row.firstName,
+				lastName: row.lastName,
+			},
+		};
+	}
+	return map;
+}
+
+// ---------------------------------------------------------------------------
+// Public search functions
+// ---------------------------------------------------------------------------
+
+/**
+ * Semantic search: embed `sourceText` as a query, score all stored vectors,
+ * and return the top-k questions above `threshold`.
+ *
+ * @param {Object} params
+ * @param {string} params.sourceText
+ * @param {number} [params.threshold]
+ * @param {number} [params.k]
+ * @returns {Promise<{ embedding: number[], similarQuestions: Object[] }>}
  */
 export async function findSimilarQuestionsByText({ sourceText, threshold, k }) {
-	// Normalize parameters
-	const normalizedK = k || RECOMMEND_K;
-	const normalizedThreshold = threshold || RECOMMEND_THRESHOLD;
+	// FIX: use safe guards instead of ||, which would mishandle 0 values
+	const normalizedK = k > 0 ? Math.min(k, 20) : RECOMMEND_K;
+	const normalizedThreshold =
+		threshold >= 0 && threshold <= 1 ? threshold : RECOMMEND_THRESHOLD;
 
-	// Use RETRIEVAL_QUERY task type when searching against stored documents
 	let embeddingResult;
 	try {
 		embeddingResult = await generateQuestionEmbedding(sourceText, {
@@ -301,9 +344,8 @@ export async function findSimilarQuestionsByText({ sourceText, threshold, k }) {
 		);
 	}
 
-	const queryEmbedding = embeddingResult.embedding; // [0.012323, -0.12324, ......]
+	const queryEmbedding = embeddingResult.embedding;
 
-	// Retrieve all ready embeddings from MySQL
 	let storedEmbeddings;
 	try {
 		storedEmbeddings = await retrieveReadyEmbeddings();
@@ -316,167 +358,100 @@ export async function findSimilarQuestionsByText({ sourceText, threshold, k }) {
 		throw error;
 	}
 
-	// Calculate cosine similarity for each stored embedding
+	// Score every stored embedding
 	const similarities = [];
 	for (const stored of storedEmbeddings) {
 		try {
 			const score = calculateCosineSimilarity(queryEmbedding, stored.embedding);
-
-			// Filter by threshold
 			if (score >= normalizedThreshold) {
-				similarities.push({
-					questionId: stored.questionId,
-					score: score,
-				});
+				similarities.push({ questionId: stored.questionId, score });
 			}
-		} catch (error) {
+		} catch (err) {
 			console.warn(
-				`Failed to calculate similarity for question ${stored.questionId}:`,
-				error.message,
+				`Skipping question ${stored.questionId} — similarity failed ` +
+				`(query dim: ${queryEmbedding.length}, stored dim: ${stored.embedding?.length ?? "unknown"}): ` +
+				err.message,
 			);
-			continue;
 		}
 	}
 
-	// Sort by score descending
-	similarities.sort((a, b) => b.score - a.score);
+	// Sort by score DESC, then by questionId DESC as tiebreaker (newest first)
+	similarities.sort((a, b) => b.score - a.score || b.questionId - a.questionId);
 
-	// Limit to top k results
 	const topResults = similarities.slice(0, normalizedK);
 
 	if (topResults.length === 0) {
-		return {
-			...embeddingResult,
-			similarQuestions: [],
-		};
+		return { ...embeddingResult, similarQuestions: [] };
 	}
 
-	// Fetch question details using IN clause
-	const questionIds = topResults.map((r) => r.questionId);
-	const placeholders = questionIds.map(() => "?").join(",");
-
-	const sql = `
-        SELECT
-            q.question_id AS questionId,
-            q.question_hash AS questionHash,
-            q.title,
-            q.content,
-            q.created_at AS createdAt,
-            q.updated_at AS updatedAt,
-            u.user_id AS userId,
-            u.first_name AS firstName,
-            u.last_name AS lastName,
-            COUNT(DISTINCT a.answer_id) AS answerCount
-        FROM questions q
-        JOIN users u ON u.user_id = q.user_id
-        LEFT JOIN answers a ON a.question_id = q.question_id
-        WHERE q.question_id IN (${placeholders})
-        GROUP BY q.question_id, u.user_id
-    `;
-
-	let rows;
+	let questionMap;
 	try {
-		rows = await safeExecute(sql, questionIds);
+		questionMap = await fetchQuestionDetails(topResults.map((r) => r.questionId));
 	} catch (error) {
 		console.error("=== DATABASE ERROR FETCHING QUESTION DETAILS ===");
 		console.error("Operation: findSimilarQuestionsByText - fetch details");
-		console.error("Question IDs:", questionIds);
+		console.error("Question IDs:", topResults.map((r) => r.questionId));
 		console.error("Error:", error);
 		console.error("***************************");
 		throw error;
 	}
 
-	// Map MySQL results to question objects
-	const questionMap = {};
-	rows.forEach((row) => {
-		questionMap[String(row.questionId)] = {
-			id: row.questionId,
-			questionHash: row.questionHash,
-			title: row.title,
-			content: row.content,
-			answerCount: row.answerCount,
-			createdAt: row.createdAt,
-			updatedAt: row.updatedAt,
-			author: {
-				id: row.userId,
-				firstName: row.firstName,
-				lastName: row.lastName,
-			},
-		};
-	});
-
-	// Return results with scores, preserving sort order
+	// Rebuild in similarity-score order (preserving the sorted topResults order)
 	const similarQuestions = topResults
-		.filter((result) => questionMap[String(result.questionId)])
-		.map((result) => ({
-			score: Number(result.score.toFixed(6)),
-			...questionMap[String(result.questionId)],
+		.filter((r) => questionMap[String(r.questionId)])
+		.map((r) => ({
+			score: Number(r.score.toFixed(6)),
+			...questionMap[String(r.questionId)],
 		}));
 
-	return {
-		...embeddingResult,
-		similarQuestions,
-	};
+	return { ...embeddingResult, similarQuestions };
 }
 
 /**
- * Find similar questions using the pre-calculated embedding of an existing question from MySQL.
- * @param {Object} params - Search parameters.
- * @param {number|string} params.questionId - The ID of the question to find similarities for.
- * @param {number} params.threshold - Minimum similarity score threshold.
- * @param {number} params.k - Maximum number of results to return.
- * @returns {Promise<Array<Object>>} A list of similar questions.
+ * Recommendation: find questions similar to an existing one using its stored embedding.
+ * The source question itself is excluded from results.
+ *
+ * @param {Object} params
+ * @param {number|string} params.questionId - Source question's ID.
+ * @param {number} [params.threshold]
+ * @param {number} [params.k]
+ * @returns {Promise<Object[]>}
  */
 export async function findSimilarQuestionsByQuestionId({
 	questionId,
 	threshold,
 	k,
 }) {
-	// Normalize parameters
 	const normalizedK = k > 0 ? Math.min(k, 20) : RECOMMEND_K;
 	const normalizedThreshold =
 		threshold >= 0 && threshold <= 1 ? threshold : RECOMMEND_THRESHOLD;
 
-	// Retrieve source question embedding from MySQL
-	const sql = `
-        SELECT embedding, status
-        FROM question_vectors
-        WHERE question_id = ?
-    `;
-
+	// Fetch the source question's stored embedding
 	let sourceEmbedding;
 	try {
-		const rows = await safeExecute(sql, [questionId]);
+		const rows = await safeExecute(
+			"SELECT embedding, status FROM question_vectors WHERE question_id = ?",
+			[questionId],
+		);
 
-		// Return empty array if no embedding or status ≠ 'ready'
-		if (rows.length === 0) {
-			return [];
-		}
+		if (rows.length === 0) return [];
 
 		const row = rows[0];
+		if (row.status !== "ready") return [];
 
-		if (row.status !== "ready") {
-			return [];
-		}
-        // Parse  source embedding from JSON string to array if necessary    
-
-	sourceEmbedding =
+		sourceEmbedding =
 			typeof row.embedding === "string"
 				? JSON.parse(row.embedding)
 				: row.embedding;
 
-		// Validate source embedding
 		if (!Array.isArray(sourceEmbedding) || sourceEmbedding.length === 0) {
-			console.warn(
-				`Source question ${questionId} has invalid embedding format.`,
-			);
+			console.warn(`Source question ${questionId} has invalid embedding format.`);
 			return [];
 		}
 
-		if (sourceEmbedding.every((v) => typeof v !== "number" || isNaN(v))) {
-			console.warn(
-				`Source question ${questionId} has invalid embedding values.`,
-			);
+		// FIX: same inverted .every() bug — corrected to match validateEmbedding
+		if (!sourceEmbedding.every((v) => typeof v === "number" && !isNaN(v))) {
+			console.warn(`Source question ${questionId} has invalid embedding values.`);
 			return [];
 		}
 	} catch (parseError) {
@@ -487,129 +462,118 @@ export async function findSimilarQuestionsByQuestionId({
 		return [];
 	}
 
-	// Retrieve all other ready embeddings from MySQL
 	let storedEmbeddings;
 	try {
 		storedEmbeddings = await retrieveReadyEmbeddings();
 	} catch (error) {
 		console.error("=== DATABASE ERROR IN SIMILAR QUESTIONS SEARCH ===");
-		console.error(
-			"Operation: findSimilarQuestionsByQuestionId - retrieve embeddings",
-		);
+		console.error("Operation: findSimilarQuestionsByQuestionId - retrieve embeddings");
 		console.error("Question ID:", questionId);
 		console.error("Error:", error);
 		console.error("***************************");
 		throw error;
 	}
 
-	// Calculate cosine similarity for each stored embedding
+	// Score all embeddings, excluding the source question
 	const similarities = [];
 	for (const stored of storedEmbeddings) {
-		// Exclude source question from results
-		if (String(stored.questionId) === String(questionId)) {
-			continue;
-		}
-		try {
-			const score = calculateCosineSimilarity(
-				sourceEmbedding,
-				stored.embedding,
-			);
+		if (String(stored.questionId) === String(questionId)) continue;
 
+		try {
+			const score = calculateCosineSimilarity(sourceEmbedding, stored.embedding);
 			if (score >= normalizedThreshold) {
-				similarities.push({
-					questionId: stored.questionId,
-					score: score,
-				});
+				similarities.push({ questionId: stored.questionId, score });
 			}
-		} catch (error) {
+		} catch (err) {
 			console.warn(
-				`Failed to calculate similarity for question ${stored.questionId}:`,
-				error.message,
+				`Skipping question ${stored.questionId} — similarity failed ` +
+				`(source dim: ${sourceEmbedding.length}, stored dim: ${stored.embedding?.length ?? "unknown"}): ` +
+				err.message,
 			);
-			continue;
 		}
 	}
 
-	// Sort by score descending
-	similarities.sort((a, b) => b.score - a.score);
+	// Sort by score DESC, newest first as tiebreaker
+	similarities.sort((a, b) => b.score - a.score || b.questionId - a.questionId);
 
-	// Limit to top k results
 	const topResults = similarities.slice(0, normalizedK);
 
-	if (topResults.length === 0) {
-		return [];
-	}
+	if (topResults.length === 0) return [];
 
-	// Fetch question details using IN clause
-	const questionIds = topResults.map((r) => r.questionId);
-	const placeholders = questionIds.map(() => "?").join(",");
-
-	const detailsSql = `
-        SELECT
-            q.question_id AS questionId,
-            q.question_hash AS questionHash,
-            q.title,
-            q.content,
-            q.created_at AS createdAt,
-            q.updated_at AS updatedAt,
-            u.user_id AS userId,
-            u.first_name AS firstName,
-            u.last_name AS lastName,
-            COUNT(DISTINCT a.answer_id) AS answerCount
-        FROM questions q
-        JOIN users u ON u.user_id = q.user_id
-        LEFT JOIN answers a ON a.question_id = q.question_id
-        WHERE q.question_id IN (${placeholders})
-        GROUP BY q.question_id, u.user_id
-    `;
-
-	let detailsRows;
+	let questionMap;
 	try {
-		detailsRows = await safeExecute(detailsSql, questionIds);
+		questionMap = await fetchQuestionDetails(topResults.map((r) => r.questionId));
 	} catch (error) {
 		console.error("=== DATABASE ERROR FETCHING QUESTION DETAILS ===");
-		console.error(
-			"Operation: findSimilarQuestionsByQuestionId - fetch details",
-		);
+		console.error("Operation: findSimilarQuestionsByQuestionId - fetch details");
 		console.error("Source Question ID:", questionId);
-		console.error("Target Question IDs:", questionIds);
-		console.error("SQL:", detailsSql.trim().replace(/\s+/g, " "));
+		console.error("Target Question IDs:", topResults.map((r) => r.questionId));
 		console.error("Error:", error);
 		console.error("***************************");
 		throw error;
 	}
 
-	// Map MySQL results to question objects
-	const questionMap = {};
-	detailsRows.forEach((detailRow) => {
-		questionMap[String(detailRow.questionId)] = {
-			id: detailRow.questionId,
-			questionHash: detailRow.questionHash,
-			title: detailRow.title,
-			content: detailRow.content,
-			answerCount: detailRow.answerCount,
-			createdAt: detailRow.createdAt,
-			updatedAt: detailRow.updatedAt,
-			author: {
-				id: detailRow.userId,
-				firstName: detailRow.firstName,
-				lastName: detailRow.lastName,
-			},
-		};
-	});
-
-	// Return results with scores, preserving sort order
 	return topResults
-		.filter((result) => questionMap[String(result.questionId)])
-		.map((result) => ({
-			score: Number(result.score.toFixed(6)),
-			...questionMap[String(result.questionId)],
+		.filter((r) => questionMap[String(r.questionId)])
+		.map((r) => ({
+			score: Number(r.score.toFixed(6)),
+			...questionMap[String(r.questionId)],
 		}));
 }
 
+// ---------------------------------------------------------------------------
+// Backfill
+// ---------------------------------------------------------------------------
+
 /**
- * Get the current vector search configuration values from environment variables or defaults.
- * @returns {Object} The current vector configuration values.
+ * Re-generate embeddings for every question that has no 'ready' vector.
+ * Covers both questions with status='failed' and questions with no row at all.
+ *
+ * @returns {Promise<{ total: number, succeeded: number, failed: number }>}
+ */
+export async function reEmbedFailedQuestions() {
+	const sql = `
+		SELECT q.question_id, q.title, q.content
+		FROM questions q
+		LEFT JOIN question_vectors qv ON qv.question_id = q.question_id
+		WHERE qv.question_id IS NULL OR qv.status != 'ready'
+		ORDER BY q.question_id ASC
+	`;
+
+	const rows = await safeExecute(sql, []);
+	const results = { total: rows.length, succeeded: 0, failed: 0 };
+
+	for (const row of rows) {
+		const sourceText = normalizeQuestionText({
+			title: row.title,
+			content: row.content,
+		});
+
+		try {
+			const { embedding } = await generateQuestionEmbedding(sourceText);
+			await storeQuestionVector({
+				questionId: row.question_id,
+				sourceText,
+				embedding,
+				status: "ready",
+			});
+			results.succeeded++;
+		} catch (err) {
+			console.error(`[reEmbedFailedQuestions] question ${row.question_id} failed:`, err.message);
+			results.failed++;
+		}
+	}
+
+	return results;
+}
+
+// ---------------------------------------------------------------------------
+// Config
+// ---------------------------------------------------------------------------
+
+/**
+ * Expose the current vector search config (from env or defaults).
+ * @returns {{ recommendThreshold: number, recommendK: number }}
  */
 export function getVectorConfig() {
 	return {

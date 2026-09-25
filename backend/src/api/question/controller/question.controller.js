@@ -3,6 +3,7 @@ import { StatusCodes } from "http-status-codes";
 // Question services handle all database operations:
 // create, list, single fetch, semantic search, and similarity search
 import {
+  backfillFailedEmbeddingsService,
   createQuestionWithVectorService,
   getQuestionsService,
   getSingleQuestionService,
@@ -16,16 +17,6 @@ import {
   generateQuestionDraftCoachService,
   assessAnswerAgainstQuestionService,
 } from "../service/geminiTextCoach.service.js";
-
-// ============================================================
-// CONSTANTS
-// ============================================================
-// Minimum cosine similarity score (0–1) for a result to be included.
-// 0.75 means only results that are at least 75% similar are returned.
-const RECOMMEND_THRESHOLD = 0.75;
-
-// Default number of results returned by search/similar endpoints
-const DEFAULT_K = 5;
 
 // ============================================================
 // CONTROLLER: Create Question
@@ -140,16 +131,13 @@ export const getSingleQuestionController = async (req, res, next) => {
 // This means it understands meaning, not just matching keywords.
 export const searchQuestionsSemanticController = async (req, res, next) => {
   try {
-    const query = req.query.query; // the search text (min 5 chars)
-    const k = req.query.k ?? DEFAULT_K; // max results to return (default 5)
-    const threshold = req.query.threshold ?? RECOMMEND_THRESHOLD; // min similarity score (default 0.75)
-
-    // Service embeds the query, fetches all stored vectors, computes cosine
-    // similarity for each, filters by threshold, and returns the top k results
+    const query = req.query.query;
+    // Validation middleware already coerces k (.toInt()) and threshold (.toFloat()).
+    // Pass them as-is; undefined means "use the service/env default".
     const { data, meta } = await searchQuestionsSemanticService({
       query,
-      k,
-      threshold,
+      k: req.query.k,
+      threshold: req.query.threshold,
     });
 
     res.status(StatusCodes.OK).json({
@@ -173,16 +161,12 @@ export const searchQuestionsSemanticController = async (req, res, next) => {
 // embeddings. The source question itself is excluded from results.
 export const getSimilarQuestionsController = async (req, res, next) => {
   try {
-    const { questionHash } = req.params; // the source question's hash
-    const k = req.query.k ?? DEFAULT_K; // how many similar questions to return
-    const threshold = req.query.threshold ?? RECOMMEND_THRESHOLD; // similarity cutoff
-
-    // Service looks up the source question's vector, computes cosine similarity
-    // against all other stored vectors, and returns the top matches
+    const { questionHash } = req.params;
+    // Pass coerced query params as-is; undefined means "use the service/env default".
     const { data, meta } = await getSimilarQuestionsService({
       questionHash,
-      k,
-      threshold,
+      k: req.query.k,
+      threshold: req.query.threshold,
     });
 
     res.status(StatusCodes.OK).json({
@@ -216,6 +200,27 @@ export const generateQuestionDraftCoachController = async (req, res, next) => {
       success: true,
       message: "Draft suggestions generated",
       data, // e.g. { tips: ["Add a code snippet", "Include error messages"] }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ============================================================
+// CONTROLLER: Backfill Failed Embeddings
+// Route: POST /api/questions/backfill-embeddings
+// Access: Protected (JWT required)
+// ============================================================
+// Re-generates Gemini embeddings for any question that has
+// status='failed' or no row in question_vectors at all.
+// Call this once after fixing an API key or model issue.
+export const backfillEmbeddingsController = async (req, res, next) => {
+  try {
+    const result = await backfillFailedEmbeddingsService();
+    res.status(StatusCodes.OK).json({
+      success: true,
+      message: "Backfill complete",
+      data: result,
     });
   } catch (error) {
     next(error);
