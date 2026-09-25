@@ -2,6 +2,8 @@
  * Route map: public pages live outside `Layout`; forum tools use `Layout` + `ProtectedRoute`.
  * Add new `<Route>` entries here, then wire navigation in `Sidebar.jsx` and
  * `Layout.jsx` (`getTitle` / `getSubtitle`) so the shell stays in sync.
+ *
+ * @returns {JSX.Element} The router tree wrapped in `AuthProvider`.
  */
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
@@ -14,7 +16,13 @@ import Landing from './pages/Landing/Landing';
 import PostQuestion from "./pages/PostQuestion/PostQuestion";
 import MyQuestions from './pages/MyQuestions/MyQuestions';
 import QuestionDetail from './pages/QuestionDetail/QuestionDetail';
+import RagDocuments from './pages/RagDocuments/RagDocuments';
 
+/**
+ * Top-level route tree.
+ *
+ * @returns {JSX.Element} `BrowserRouter` wrapping public and protected routes.
+ */
 function App() {
   return (
     <BrowserRouter>
@@ -70,12 +78,7 @@ function App() {
               path="/rag-documents"
               element={
                 <ProtectedRoute>
-                  <div style={{ padding: '2rem' }}>
-                    <h2 style={{ marginBottom: '0.5rem' }}>Knowledge Base</h2>
-                    <p style={{ color: '#475569', fontSize: '0.875rem' }}>
-                      RAG document upload and search — coming soon.
-                    </p>
-                  </div>
+                  <RagDocuments />
                 </ProtectedRoute>
               }
             />
