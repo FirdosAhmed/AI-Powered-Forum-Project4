@@ -17,7 +17,7 @@ export default function Layout() {
     const path = location.pathname;
     if (path === '/dashboard') return 'Home';
     if (path === '/my-questions') return 'Your topics';
-    if (path === '/questions/ask') return 'Ask a question';
+    if (path === '/questions/ask') return 'Forum';
     if (path.startsWith('/question/') || path.startsWith('/questions/'))
       return 'Discussion';
     if (path === '/rag-documents') return 'Knowledge base';

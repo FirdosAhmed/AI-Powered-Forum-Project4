@@ -129,7 +129,8 @@ export default function PostQuestion() {
         title: formData.title.trim(),
         content: formData.content.trim(),
       });
-      setCoachFeedback(data);
+      // Backend wraps tips under data.data.tips — unwrap it
+      setCoachFeedback(data?.data ?? data);
     } catch (err) {
       setCoachFeedback(null);
       setError(err.message);
@@ -159,7 +160,7 @@ export default function PostQuestion() {
         title: formData.title.trim(),
         content: formData.content.trim(),
       });
-      setPublishedHash(created?.questionHash || null);
+      setPublishedHash(created?.data?.questionHash || null);
       setSuccess('Thread published');
     } catch (err) {
       const message = err.message || 'Failed to post question.';
