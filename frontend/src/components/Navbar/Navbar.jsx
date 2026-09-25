@@ -49,7 +49,7 @@ export default function Navbar({ title, subtitle, user, onLogout }) {
 
   const handleSemanticSearch = e => {
     e.preventDefault();
-    if (searchTerm.trim().length >= 3) {
+    if (searchTerm.trim().length >= 5) {
       navigate(`/dashboard?semantic=${encodeURIComponent(searchTerm)}`);
     }
   };
@@ -83,7 +83,7 @@ export default function Navbar({ title, subtitle, user, onLogout }) {
           className={styles['navbar__search-input']}
           aria-label='Search questions by keyword'
         />
-        {searchTerm.length >= 3 && (
+        {searchTerm.length >= 5 && (
           <button
             type='button'
             onClick={handleSemanticSearch}

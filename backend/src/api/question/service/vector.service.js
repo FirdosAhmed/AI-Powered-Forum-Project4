@@ -6,7 +6,7 @@ const GEMINI_EMBEDDING_MODEL =
 	process.env.GEMINI_EMBEDDING_MODEL || "gemini-embedding-001";
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-const RECOMMEND_THRESHOLD = Number(process.env.RECOMMEND_THRESHOLD) || 0.75;
+const RECOMMEND_THRESHOLD = Number(process.env.RECOMMEND_THRESHOLD) || 0.4;
 const RECOMMEND_K = Number(process.env.RECOMMEND_K) || 5;
 
 if (!GEMINI_API_KEY) {
@@ -29,14 +29,18 @@ function normalizeWhitespace(value) {
 }
 
 /**
- * Normalize a question title to lowercase NFKC for consistent embedding input.
- * @example "What's NEW in    AI?" → "what's new in ai?"
+ * Normalize question text to lowercase NFKC for consistent embedding input.
+ * Combines title and optional content so the embedding captures full meaning.
+ * @example ({ title: "Sort arrays?", content: "Using JS" }) → "sort arrays? using js"
  * @param {Object} params
  * @param {string} params.title
+ * @param {string} [params.content]
  * @returns {string}
  */
-export function normalizeQuestionText({ title }) {
-	return normalizeWhitespace(`${title || ""}`.normalize("NFKC").toLowerCase());
+export function normalizeQuestionText({ title, content }) {
+	const titlePart = `${title || ""}`.normalize("NFKC").toLowerCase();
+	const contentPart = `${content || ""}`.normalize("NFKC").toLowerCase();
+	return normalizeWhitespace(contentPart ? `${titlePart} ${contentPart}` : titlePart);
 }
 
 // ---------------------------------------------------------------------------
@@ -364,7 +368,8 @@ export async function findSimilarQuestionsByText({ sourceText, threshold, k }) {
 			}
 		} catch (err) {
 			console.warn(
-				`Failed to calculate similarity for question ${stored.questionId}:`,
+				`Skipping question ${stored.questionId} — similarity failed ` +
+				`(query dim: ${queryEmbedding.length}, stored dim: ${stored.embedding?.length ?? "unknown"}): ` +
 				err.message,
 			);
 		}
@@ -481,7 +486,8 @@ export async function findSimilarQuestionsByQuestionId({
 			}
 		} catch (err) {
 			console.warn(
-				`Failed to calculate similarity for question ${stored.questionId}:`,
+				`Skipping question ${stored.questionId} — similarity failed ` +
+				`(source dim: ${sourceEmbedding.length}, stored dim: ${stored.embedding?.length ?? "unknown"}): ` +
 				err.message,
 			);
 		}
@@ -513,6 +519,52 @@ export async function findSimilarQuestionsByQuestionId({
 			score: Number(r.score.toFixed(6)),
 			...questionMap[String(r.questionId)],
 		}));
+}
+
+// ---------------------------------------------------------------------------
+// Backfill
+// ---------------------------------------------------------------------------
+
+/**
+ * Re-generate embeddings for every question that has no 'ready' vector.
+ * Covers both questions with status='failed' and questions with no row at all.
+ *
+ * @returns {Promise<{ total: number, succeeded: number, failed: number }>}
+ */
+export async function reEmbedFailedQuestions() {
+	const sql = `
+		SELECT q.question_id, q.title, q.content
+		FROM questions q
+		LEFT JOIN question_vectors qv ON qv.question_id = q.question_id
+		WHERE qv.question_id IS NULL OR qv.status != 'ready'
+		ORDER BY q.question_id ASC
+	`;
+
+	const rows = await safeExecute(sql, []);
+	const results = { total: rows.length, succeeded: 0, failed: 0 };
+
+	for (const row of rows) {
+		const sourceText = normalizeQuestionText({
+			title: row.title,
+			content: row.content,
+		});
+
+		try {
+			const { embedding } = await generateQuestionEmbedding(sourceText);
+			await storeQuestionVector({
+				questionId: row.question_id,
+				sourceText,
+				embedding,
+				status: "ready",
+			});
+			results.succeeded++;
+		} catch (err) {
+			console.error(`[reEmbedFailedQuestions] question ${row.question_id} failed:`, err.message);
+			results.failed++;
+		}
+	}
+
+	return results;
 }
 
 // ---------------------------------------------------------------------------
