@@ -10,8 +10,12 @@ export const UPLOADS_BASE = path.join(__dirname, "..", "..", "..", "uploads");
 const storage = multer.diskStorage({
   destination(req, _file, cb) {
     const dir = path.join(UPLOADS_BASE, String(req.user.id));
-    fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+      cb(null, dir);
+    } catch (err) {
+      cb(err);
+    }
   },
   filename(_req, file, cb) {
     const unique = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
