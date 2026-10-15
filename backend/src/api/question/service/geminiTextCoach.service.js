@@ -41,7 +41,7 @@ function parseJsonObjectFromGeminiText(raw) {
     const v = JSON.parse(t);
     return v && typeof v === "object" && !Array.isArray(v) ? v : null;
   } catch {
-    return null;
+    return "service unavailable error";
   }
 }
 
