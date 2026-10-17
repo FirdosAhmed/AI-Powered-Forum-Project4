@@ -14,35 +14,69 @@ const port = process.env.PORT || 3777;
 // ============================================================
 // CORS CONFIGURATION
 // ============================================================
+
 const allowedOrigins = [
   process.env.FRONTEND_URL,
+  'https://firdosevangadforum.netlify.app',
   'http://localhost:5173',
   'http://localhost:3000',
-].filter(Boolean);
+]
+  .filter(Boolean)
+  .map((origin) => origin.trim().replace(/\/+$/, ''));
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests from tools such as curl and Postman.
-      if (!origin || allowedOrigins.includes(origin)) {
+      // Allow requests without an Origin header (e.g. health checks).
+      if (!origin) {
         return callback(null, true);
       }
 
-      return callback(new Error(`CORS blocked origin: ${origin}`));
+      const normalizedOrigin = origin.replace(/\/+$/, '');
+
+      if (allowedOrigins.includes(normalizedOrigin)) {
+        return callback(null, true);
+      }
+
+      console.error('CORS blocked origin:', origin);
+
+      return callback(
+        new Error(`CORS blocked origin: ${origin}`)
+      );
     },
+    methods: [
+      'GET',
+      'POST',
+      'PUT',
+      'PATCH',
+      'DELETE',
+      'OPTIONS',
+    ],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+    ],
     credentials: true,
-  }),
+    optionsSuccessStatus: 204,
+  })
 );
 
 // ============================================================
-// MIDDLEWARE
+// GENERAL MIDDLEWARE
 // ============================================================
+
 app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(
+  express.urlencoded({
+    extended: true,
+    limit: '10mb',
+  })
+);
 
 // ============================================================
 // ROOT ROUTE
 // ============================================================
+
 app.get('/', (req, res) => {
   res.status(200).json({
     message: 'AI-Powered Evangadi Forum API is running!',
@@ -52,6 +86,7 @@ app.get('/', (req, res) => {
       health: '/health',
       databaseHealth: '/api/health',
       api: '/api',
+      login: '/api/auth/login',
     },
   });
 });
@@ -59,6 +94,7 @@ app.get('/', (req, res) => {
 // ============================================================
 // GENERAL HEALTH CHECK
 // ============================================================
+
 app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'ok',
@@ -70,6 +106,7 @@ app.get('/health', (req, res) => {
 // ============================================================
 // DATABASE HEALTH CHECK
 // ============================================================
+
 app.get('/api/health', async (req, res) => {
   let connection;
 
@@ -83,7 +120,10 @@ app.get('/api/health', async (req, res) => {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error('Database health check failed:', error.message);
+    console.error(
+      'Database health check failed:',
+      error.message
+    );
 
     return res.status(500).json({
       ok: false,
@@ -100,35 +140,63 @@ app.get('/api/health', async (req, res) => {
 // ============================================================
 // API ROUTES
 // ============================================================
+
 app.use('/api', mainRouter);
 
 // ============================================================
-// ERROR HANDLER
-// Keep this after the routes.
+// 404 HANDLER
+// Keep this before the general error handler.
 // ============================================================
+
+app.use((req, res, next) => {
+  res.status(404).json({
+    success: false,
+    message: `Route not found: ${req.method} ${req.originalUrl}`,
+  });
+});
+
+// ============================================================
+// CENTRAL ERROR HANDLER
+// ============================================================
+
 app.use(errorHandler);
 
 // ============================================================
 // START SERVER AND INITIALIZE DATABASE
 // ============================================================
+
 async function startServer() {
   try {
-    // Verify database connectivity before starting the server.
-    const connection = await db.getConnection();
+    // Verify database connectivity.
+    let connection = await db.getConnection();
     connection.release();
+    connection = null;
 
-    console.log('Database connection established successfully.');
+    console.log(
+      'Database connection established successfully.'
+    );
 
-    // Create or initialize the required database tables.
+    // Initialize database tables.
     await initDb();
-    console.log('Database tables initialized successfully.');
 
-    // Start accepting requests only after successful initialization.
+    console.log(
+      'Database tables initialized successfully.'
+    );
+
+    // Start the server after successful initialization.
     app.listen(port, '0.0.0.0', () => {
       console.log(`Server running on port ${port}`);
+      console.log(
+        'Allowed frontend origins:',
+        allowedOrigins
+      );
     });
   } catch (error) {
-    console.error('Failed to start the application:', error.message);
+    console.error(
+      'Failed to start the application:',
+      error.message
+    );
+
     process.exit(1);
   }
 }
