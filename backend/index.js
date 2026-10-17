@@ -1,7 +1,9 @@
+
 import 'dotenv/config';
-import { initDb } from './db/init.js';
 import express from 'express';
 import cors from 'cors';
+
+import { initDb } from './db/init.js';
 import { db } from './db/config.js';
 import { mainRouter } from './src/api/routes.js';
 import { errorHandler } from './src/middleware/error-handler.js';
@@ -10,7 +12,7 @@ const app = express();
 const port = process.env.PORT || 3777;
 
 // ============================================================
-// CORS
+// CORS CONFIGURATION
 // ============================================================
 const allowedOrigins = [
   process.env.FRONTEND_URL,
@@ -21,11 +23,12 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      // allow tools like curl/Postman (no origin) and listed sites
+      // Allow requests from tools such as curl and Postman.
       if (!origin || allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
-      return callback(new Error('Not allowed by CORS'));
+
+      return callback(new Error(`CORS blocked origin: ${origin}`));
     },
     credentials: true,
   }),
@@ -34,48 +37,100 @@ app.use(
 // ============================================================
 // MIDDLEWARE
 // ============================================================
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // ============================================================
-// HEALTH CHECKS
+// ROOT ROUTE
 // ============================================================
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date() });
+app.get('/', (req, res) => {
+  res.status(200).json({
+    message: 'AI-Powered Evangadi Forum API is running!',
+    status: 'success',
+    endpoints: {
+      root: '/',
+      health: '/health',
+      databaseHealth: '/api/health',
+      api: '/api',
+    },
+  });
 });
 
+// ============================================================
+// GENERAL HEALTH CHECK
+// ============================================================
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    service: 'AI-Powered Evangadi Forum API',
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// ============================================================
+// DATABASE HEALTH CHECK
+// ============================================================
 app.get('/api/health', async (req, res) => {
+  let connection;
+
   try {
-    const connection = await db.getConnection();
+    connection = await db.getConnection();
     await connection.query('SELECT 1');
-    connection.release();
-    res.json({ ok: true, database: 'connected' });
+
+    return res.status(200).json({
+      ok: true,
+      database: 'connected',
+      timestamp: new Date().toISOString(),
+    });
   } catch (error) {
-    console.error('DB health error:', error.message);
-    res.status(500).json({ ok: false, error: error.message });
+    console.error('Database health check failed:', error.message);
+
+    return res.status(500).json({
+      ok: false,
+      database: 'disconnected',
+      message: 'Database health check failed.',
+    });
+  } finally {
+    if (connection) {
+      connection.release();
+    }
   }
 });
 
 // ============================================================
-// ROUTES
+// API ROUTES
 // ============================================================
 app.use('/api', mainRouter);
 
+// ============================================================
+// ERROR HANDLER
+// Keep this after the routes.
+// ============================================================
 app.use(errorHandler);
 
 // ============================================================
-// START SERVER
+// START SERVER AND INITIALIZE DATABASE
 // ============================================================
-app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
-});
-
-db.getConnection()
-  .then(async connection => {
-    console.log('Database connection established successfully.');
+async function startServer() {
+  try {
+    // Verify database connectivity before starting the server.
+    const connection = await db.getConnection();
     connection.release();
+
+    console.log('Database connection established successfully.');
+
+    // Create or initialize the required database tables.
     await initDb();
-  })
-  .catch(error => {
-    console.error('Database setup failed:', error.message);
-  });
+    console.log('Database tables initialized successfully.');
+
+    // Start accepting requests only after successful initialization.
+    app.listen(port, '0.0.0.0', () => {
+      console.log(`Server running on port ${port}`);
+    });
+  } catch (error) {
+    console.error('Failed to start the application:', error.message);
+    process.exit(1);
+  }
+}
+
+startServer();
