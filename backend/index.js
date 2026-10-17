@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { initDb } from './db/init.js';
 import express from 'express';
 import cors from 'cors';
 import { db } from './db/config.js';
@@ -70,10 +71,11 @@ app.listen(port, () => {
 });
 
 db.getConnection()
-  .then(connection => {
+  .then(async connection => {
     console.log('Database connection established successfully.');
     connection.release();
+    await initDb();
   })
   .catch(error => {
-    console.error('Database connection failed:', error.message);
+    console.error('Database setup failed:', error.message);
   });
